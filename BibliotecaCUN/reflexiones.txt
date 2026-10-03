@@ -1,0 +1,117 @@
+REFLEXIONES — Taller Laboratorio Java: Sistema de Biblioteca CUN
+Asignatura: POO2
+Estudiante: tercer semestre, Ingeniería de Sistemas
+
+Estas respuestas usan las clases del proyecto: Libro, Prestamo, CalculadoraMultas, MaterialBiblioteca, INotificador y las demás del sistema de la Biblioteca CUN.
+
+
+PARTE 0
+
+¿Qué hace this en el constructor?
+Cuando escribo public Libro(String isbn, String titulo, ...), el parámetro isbn tapa al atributo isbn de la clase. this.isbn se refiere al atributo del objeto que se está creando. Sin this, la línea isbn = isbn solo se asignaría el parámetro a sí mismo y el atributo quedaría en null. Lo vi claro al crear el libro de Cien Años de Soledad: this.isbn guarda "978-3-16-148410-0" dentro del objeto.
+
+¿Por qué los atributos son private?
+Para que nadie los cambie desde afuera sin pasar por la clase. En Libro, isbn, titulo y autor quedan ocultos. Desde Main solo puedo leerlos con getTitulo() o getAutor(). Si fueran public, cualquier clase podría dejar el título vacío o cambiar el año sin validar.
+
+¿Qué pasaría si intentara hacer libro1.titulo = "Otro" desde Main?
+No compila. Java marca el error porque titulo es private y Main no está dentro de Libro. Esa es la idea del encapsulamiento: el dato no se toca directo. Si más adelante necesito cambiarlo, tendría que crear un setter y ahí decidir si acepto el cambio.
+
+
+PARTE 1
+
+¿Por qué agregar multas, correos, base de datos y PDF a Libro violaría la alta cohesión?
+Porque Libro dejaría de hacer una sola cosa. En el taller, Libro representa un material: código, título, autor y año. Si además calcula multas, manda correos, guarda en base de datos y arma PDF, mezcla responsabilidades que no tienen que ver entre sí. Una clase así se vuelve una God Class: hay que abrirla por cualquier cambio de la biblioteca, aunque el libro en sí no haya cambiado.
+
+¿Por qué CalculadoraMultas no debería estar dentro de Prestamo?
+Prestamo se encarga del ciclo del préstamo: usuario, fecha, fecha esperada y si ya se devolvió. La multa es otra regla. Si la meto en Prestamo, cada vez que cambie el valor de la multa tengo que modificar la clase del préstamo. Con CalculadoraMultas separada, Prestamo no sabe cuánto se cobra.
+
+¿Qué pasaría si mañana la multa cambia de $2.000 a $3.000 por día?
+En la parte 1 solo tocaría CalculadoraMultas, la constante MULTA_POR_DIA. No tendría que abrir Libro ni Prestamo. Eso es bajo acoplamiento: el cambio queda en un solo archivo.
+
+Alta cohesión y bajo acoplamiento con Libro, Prestamo y CalculadoraMultas
+Alta cohesión quiere decir que lo que hay dentro de una clase apunta al mismo objetivo. Libro solo describe el libro. Prestamo solo lleva el préstamo de Ana Gómez o de Carlos Ruiz. CalculadoraMultas solo calcula. Bajo acoplamiento quiere decir que una clase depende poco de los detalles de otra. CalculadoraMultas no entra a los atributos privados del préstamo: usa isDevuelto() y getFechaDevolucionEsperada(). Si cambio cómo se guarda la fecha dentro de Prestamo, la calculadora sigue igual mientras esos métodos existan.
+
+
+PARTE 2
+
+¿Por qué LibroNoDisponibleException es checked y DatosInvalidosException es unchecked?
+LibroNoDisponibleException extiende Exception. Es una regla de la biblioteca: el libro de Cien Años de Soledad ya se prestó a Ana y Carlos no puede llevárselo. Eso puede pasar en una ejecución normal, así que el compilador me obliga a poner throws o try/catch. DatosInvalidosException extiende RuntimeException. Representa un dato mal armado, como un ISBN vacío. Eso lo debería evitar yo al programar, por eso Java no me obliga a capturarla.
+
+¿Qué pasaría si no capturara LibroNoDisponibleException?
+El método main tendría que declararla con throws, o el programa no compila. Si la dejo salir sin capturarla en ejecución, el programa se corta en ese punto y muestra el stack trace. En el Main del taller la capturo e imprimo "ERROR DE NEGOCIO", y después el programa sigue con la prueba del ISBN vacío.
+
+Diferencia entre checked y unchecked con un ejemplo de cada una
+Checked: LibroNoDisponibleException. Cuando intento Prestamo p2 sobre el mismo libro, el constructor la lanza y el catch la muestra. Unchecked: DatosInvalidosException. new Libro("", "Sin ISBN", "Autor X", 2024) falla porque el código va vacío. No hace falta declararla en la firma, pero igual la capturo para que el mensaje salga ordenado y el programa no se caiga.
+
+
+PARTE 3
+
+¿Por qué MaterialBiblioteca no puede ser instanciada?
+Porque es abstract. No existe "un material" suelto en la biblioteca CUN: existe un libro, una revista, un DVD o una tesis. Si intento new MaterialBiblioteca(...), no compila. Sirve para guardar lo común: código, título, año y disponible.
+
+¿Por qué getDiasPrestamoPermitidos() es abstracto y no concreto?
+Porque no hay un número que sirva para todos. El libro permite 15 días, la revista 3, el DVD 5 y la tesis 0 porque es consulta en sala. Si lo dejara concreto en el padre, estaría inventando un valor para todos. Cada hija está obligada a implementar el método, y por eso el for de materiales puede llamar m.getDiasPrestamoPermitidos() sin preguntar el tipo.
+
+¿Cuándo usar una clase abstracta en lugar de una interfaz?
+Uso clase abstracta cuando las clases comparten datos y también algún método ya hecho. MaterialBiblioteca tiene codigo, titulo, anioPublicacion y disponible, y los métodos marcarComoPrestado() y marcarComoDevuelto() ya están escritos. Una interfaz no guarda ese estado. La interfaz la uso cuando solo quiero un contrato, como INotificador: no le importa si por dentro es correo o SMS, solo pide enviarNotificacion y getNombreCanal.
+
+
+PARTE 4
+
+¿Por qué INotificador es una interfaz y MaterialBiblioteca es una clase abstracta?
+INotificador no tiene atributos. Solo dice qué deben saber hacer Email, SMS y WhatsApp. MaterialBiblioteca sí tiene estado compartido y métodos concretos. Por eso una es interfaz y la otra es clase abstracta. Un notificador no "es un" material; un Libro sí "es un" MaterialBiblioteca.
+
+¿Qué ventaja tiene que ServicioNotificaciones reciba el notificador por constructor?
+El servicio no crea él mismo el NotificadorEmail. Se lo pasan. En el Main empiezo con email para Ana Gómez, luego cambio a WhatsApp para Carlos Ruiz y después a SMS para Luisa Fernández, sin modificar ServicioNotificaciones. Si mañana hubiera otro canal, haría otra clase que implemente INotificador y la inyectaría igual.
+
+Diferencia entre herencia e implementación de interfaz
+Herencia: Libro extends MaterialBiblioteca. El libro hereda código, título, año y disponible, y completa getDiasPrestamoPermitidos(). Es una relación "es un". Implementación de interfaz: NotificadorEmail implements INotificador. No hereda datos; se compromete a cumplir el contrato. Puedo tener un arreglo de MaterialBiblioteca con libros y revistas, y también una variable INotificador que a ratos apunta a email y a ratos a SMS. Las dos son polimorfismo, pero una comparte estado y la otra solo comportamiento.
+
+
+PARTE 5
+
+¿Por qué usamos HashMap y no TreeMap para porCodigo?
+Porque la búsqueda del taller es por código exacto, por ejemplo "L-001", y no necesito los códigos ordenados. HashMap hace esa búsqueda muy rápido, el taller la marca como O(1). TreeMap ordenaría las claves y sería más de lo que pide este catálogo.
+
+¿Qué pasaría si usáramos ArrayList para la cola de reservas?
+Podría guardar los nombres, pero atender al primero con remove(0) mueve todos los elementos que quedan. Con tres reservas no se nota. Con muchas, ese costo crece. LinkedList usada como Queue saca el primero con poll() sin recorrer toda la lista. Por eso la cola de Ana, Carlos y Luisa usa Queue y no la lista del catálogo.
+
+Diferencia entre List, Set, Queue y Map
+List: materiales, un ArrayList. Mantiene el orden en que los agregué y, si no lo evito, permitiría repetidos. La uso para listar el catálogo.
+Set: categorias, un HashSet. Guarda LIBRO, REVISTA, DVD y TESIS una sola vez, aunque agregue varios libros.
+Queue: colaReservas, un LinkedList. El primero que llega es el primero que se atiende. offer mete y poll saca.
+Map: porCodigo, un HashMap. La clave es el código y el valor es el material. buscarPorCodigo("L-001") no recorre toda la lista.
+
+Ojo con la consistencia: si agrego dos materiales con el mismo código, la lista queda con dos y el mapa se queda con el último. El taller no valida duplicados. Lo dejo así porque el ejercicio no lo pide, pero en la sustentación debo mencionarlo.
+
+
+PARTE 6
+
+¿Por qué el Singleton usa synchronized en getInstancia()?
+Para que dos llamadas al mismo tiempo no creen dos ConfiguracionBiblioteca. El private en el constructor evita que alguien haga new por fuera. synchronized hace que la creación de la instancia ocurra de a una. En este laboratorio de consola casi no se nota, pero queda como lo pide el taller. Si quito el private, el singleton se puede saltar.
+
+¿Qué ventaja tiene la Factory con Map<String, Function> en lugar de un switch?
+El registro asocia "LIBRO", "REVISTA", "DVD" y "TESIS" con la forma de construirlos. crear("LIBRO", "L-002", "1984", "George Orwell", "1949") busca en el mapa y llama al constructor correcto. Si uso switch, cada tipo nuevo obliga a abrir el método y agregar un case. Con el mapa, el tipo desconocido simplemente no está y lanzo IllegalArgumentException. El orden de los argumentos sí importa: en revista el año va antes que el número de edición, si los cambio, parseInt falla o se arma mal el objeto.
+
+¿Por qué la estrategia de multa es intercambiable en tiempo de ejecución?
+Porque el cálculo depende de la interfaz IEstrategiaMulta, no de una clase fija. Puedo tener una variable estrategia, ponerle MultaEstudiante y calcular 5 días a $1.000, y después cambiarla por MultaDocente y calcular los mismos 5 días a $1.500, sin reescribir el flujo. Eso es el patrón Strategy.
+
+Qué problema resuelve cada patrón
+Singleton: que la biblioteca tenga una sola configuración. Nombre "Biblioteca CUN Ibagué", multa por día y máximo de días no deberían existir en varias copias distintas.
+Factory: que Main no tenga que conocer todos los constructores cada vez que crea un material. Le digo el tipo y los datos, y MaterialFactory devuelve un MaterialBiblioteca.
+Strategy: que la multa pueda cambiar según si es estudiante, docente o tarifa normal, sin llenar CalculadoraMultas de if.
+
+
+PARTE 7 — Observaciones que debo poder explicar
+
+Disponibilidad
+Prestamo pone el libro en no disponible con setDisponible(false). marcarComoDevuelto() del préstamo solo cambia devuelto a true. No devuelve el disponible del libro. Para dejarlo otra vez en sala hay que llamar también libro.marcarComoDevuelto(). Lo comprobé en BibliotecaApp.
+
+Tesis
+getDiasPrestamoPermitidos() de Tesis retorna 0, pero ninguna clase impide crear un préstamo de tesis porque Prestamo solo acepta Libro. El 0 expresa la regla de consulta en sala, pero el taller no pide una excepción extra. No la inventé.
+
+Multas
+CalculadoraMultas tiene su propio 2000. ConfiguracionBiblioteca también tiene 2000, pero la calculadora no lo lee. MultaEstandar, MultaEstudiante y MultaDocente son otro mecanismo. Un préstamo creado hoy da multa 0 en CalculadoraMultas porque la fecha esperada es futura. Las estrategias sí sirven para simular 5 días de retraso.
+
+Main y BibliotecaApp
+Main queda como demostración de las partes 2 a 6. BibliotecaApp es el flujo completo de la parte 7, para explicarlo en orden: configuración, factory, catálogo, préstamo, excepción, notificaciones, estrategias y estado final.
